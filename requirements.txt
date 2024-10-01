@@ -1,6 +1,4 @@
-livekit >= 0.15.0
-livekit-protocol
-livekit-agents @ TODO
-livekit-plugins-openai @ TODO
+livekit >= 0.17.1
+livekit-agents~=0.10.0
+livekit-plugins-openai~=0.10.0
 python-dotenv~=1.0
-aiofile~=3.8.8

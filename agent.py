@@ -10,7 +10,6 @@ from livekit.agents import (
     JobContext,
     JobRequest,
     WorkerOptions,
-    WorkerType,
     cli,
     llm,
 )
@@ -29,7 +28,7 @@ async def request(ctx: JobRequest):
     # In this case, when running in a sandbox we only want to join rooms
     # associated with that sandbox.
     if sandbox is not None:
-        hash = sandbox.split('-')[-1]
+        hash = sandbox.split("-")[-1]
         if ctx.room.name.startswith(f"sbx-{hash}"):
             return await ctx.accept()
         return await ctx.reject()
@@ -47,8 +46,8 @@ async def entrypoint(ctx: JobContext):
     logger.info("agent started")
 
 
-def run_multimodal_agent(ctx: JobContext, _: rtc.Participant):
-    logger.info(f"starting multimodal agent")
+def run_multimodal_agent(ctx: JobContext, participant: rtc.Participant):
+    logger.info("starting multimodal agent")
 
     model = openai.realtime.RealtimeModel(
         instructions=(
@@ -62,10 +61,10 @@ def run_multimodal_agent(ctx: JobContext, _: rtc.Participant):
         modalities=["audio", "text"],
     )
     assistant = MultimodalAgent(model=model)
-    assistant.start(ctx.room)
+    assistant.start(ctx.room, participant)
 
     session = model.sessions[0]
-    session.default_conversation.item.create(
+    session.conversation.item.create(
         llm.ChatMessage(
             role="user",
             content="Please begin the interaction with the user in a manner consistent with your instructions.",
@@ -75,5 +74,9 @@ def run_multimodal_agent(ctx: JobContext, _: rtc.Participant):
 
 
 if __name__ == "__main__":
-    cli.run_app(WorkerOptions(entrypoint_fnc=entrypoint, worker_type=WorkerType.ROOM, request_fnc=request))
-
+    cli.run_app(
+        WorkerOptions(
+            entrypoint_fnc=entrypoint,
+            request_fnc=request,
+        )
+    )
