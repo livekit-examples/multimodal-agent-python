@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import os
 import logging
 from dotenv import load_dotenv
 
@@ -8,7 +7,6 @@ from livekit import rtc
 from livekit.agents import (
     AutoSubscribe,
     JobContext,
-    JobRequest,
     WorkerOptions,
     cli,
     llm,
@@ -18,21 +16,8 @@ from livekit.plugins import openai
 
 
 load_dotenv(dotenv_path=".env.local")
-sandbox = os.getenv("LIVEKIT_SANDBOX_ID")
 logger = logging.getLogger("my-worker")
 logger.setLevel(logging.INFO)
-
-
-# The agent can be configured to only accept jobs from specific rooms
-async def request(ctx: JobRequest):
-    # In this case, when running in a sandbox we only want to join rooms
-    # associated with that sandbox.
-    if sandbox is not None:
-        hash = sandbox.split("-")[-1]
-        if ctx.room.name.startswith(f"sbx-{hash}"):
-            return await ctx.accept()
-        return await ctx.reject()
-    return await ctx.accept()
 
 
 async def entrypoint(ctx: JobContext):
@@ -77,6 +62,5 @@ if __name__ == "__main__":
     cli.run_app(
         WorkerOptions(
             entrypoint_fnc=entrypoint,
-            request_fnc=request,
         )
     )
