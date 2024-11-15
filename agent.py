@@ -31,7 +31,7 @@ async def entrypoint(ctx: JobContext):
     logger.info("agent started")
 
 
-def run_multimodal_agent(ctx: JobContext, participant: rtc.Participant):
+def run_multimodal_agent(ctx: JobContext, participant: rtc.RemoteParticipant):
     logger.info("starting multimodal agent")
 
     model = openai.realtime.RealtimeModel(
