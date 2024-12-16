@@ -42,8 +42,8 @@ def run_multimodal_agent(ctx: JobContext, participant: rtc.RemoteParticipant):
         ),
         modalities=["audio", "text"],
     )
-    assistant = MultimodalAgent(model=model)
-    assistant.start(ctx.room, participant)
+    agent = MultimodalAgent(model=model)
+    agent.start(ctx.room, participant)
 
     session = model.sessions[0]
     session.conversation.item.create(
