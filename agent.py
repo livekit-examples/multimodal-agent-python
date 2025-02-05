@@ -42,17 +42,24 @@ def run_multimodal_agent(ctx: JobContext, participant: rtc.RemoteParticipant):
         ),
         modalities=["audio", "text"],
     )
-    agent = MultimodalAgent(model=model)
+
+    # create a chat context with chat history, these will be synchronized with the server
+    # upon session establishment
+    chat_ctx = llm.ChatContext()
+    chat_ctx.append(
+        text="Context about the user: you are talking to a software engineer who's building voice AI applications."
+        "Greet the user with a friendly greeting and ask how you can help them today.",
+        role="assistant",
+    )
+
+    agent = MultimodalAgent(
+        model=model,
+        chat_ctx=chat_ctx,
+    )
     agent.start(ctx.room, participant)
 
-    session = model.sessions[0]
-    session.conversation.item.create(
-        llm.ChatMessage(
-            role="assistant",
-            content="Please begin the interaction with the user in a manner consistent with your instructions.",
-        )
-    )
-    session.response.create()
+    # to enable the agent to speak first
+    agent.generate_reply()
 
 
 if __name__ == "__main__":
