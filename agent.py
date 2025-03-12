@@ -75,7 +75,13 @@ async def handle_pre_connect(agent: MultimodalAgent, session: openai.realtime.Re
 
     sample_rate = int(reader.info.attributes["sampleRate"])
     num_channels = int(reader.info.attributes["channels"])
+    if sample_rate is None or num_channels is None:
+        return
+
     audio_stream = AudioByteStream(sample_rate=sample_rate, num_channels=num_channels)
+    if audio_stream is None:
+        return
+
     audio_queue = asyncio.Queue()
     input_buffer = session.input_audio_buffer
     
