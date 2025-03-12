@@ -14,7 +14,7 @@ from livekit.agents import (
 )
 from livekit.agents.multimodal import MultimodalAgent
 from livekit.plugins import openai
-
+from livekit.agents.utils.audio import AudioByteStream
 
 load_dotenv(dotenv_path=".env.local")
 logger = logging.getLogger("my-worker")
@@ -70,6 +70,7 @@ def run_multimodal_agent(ctx: JobContext, participant: rtc.RemoteParticipant):
 
 
 async def handle_pre_connect(agent: MultimodalAgent, session: openai.realtime.RealtimeModel.Session, reader: rtc.ByteStreamReader):
+    audio_stream = AudioByteStream(sample_rate=24000, num_channels=1, samples_per_channel=480)
     audio_queue = asyncio.Queue()
     input_buffer = session.input_audio_buffer
     
@@ -77,9 +78,7 @@ async def handle_pre_connect(agent: MultimodalAgent, session: openai.realtime.Re
         while True:
             chunk = await audio_queue.get()
             try:
-                frame = rtc.AudioFrame(data=chunk, sample_rate=48000, num_channels=1, samples_per_channel=480)
-                if frame is not None:
-                    logger.debug(f"Appending frame to buffer: {input_buffer}")
+                for frame in audio_stream.write(chunk):
                     input_buffer.append(frame)
             except Exception as e:
                 logger.error(f"Error processing audio chunk: {e}")
@@ -94,8 +93,10 @@ async def handle_pre_connect(agent: MultimodalAgent, session: openai.realtime.Re
             await audio_queue.put(chunk)
     finally:
         processor_task.cancel()
-        input_buffer.commit()
-        logger.info(f"Pre-connect audio processing complete with buffer: {input_buffer}")
+        for frame in audio_stream.flush():
+            input_buffer.append(frame)
+        session.commit_audio_buffer()
+        agent.generate_reply()
         try:
             await processor_task
         except asyncio.CancelledError:
