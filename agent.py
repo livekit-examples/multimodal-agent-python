@@ -71,6 +71,7 @@ def run_multimodal_agent(ctx: JobContext, participant: rtc.RemoteParticipant):
 
 async def handle_pre_connect(agent: MultimodalAgent, session: openai.realtime.RealtimeModel.Session, reader: rtc.ByteStreamReader):
     audio_queue = asyncio.Queue()
+    input_buffer = session.input_audio_buffer
     
     async def process_queue():
         while True:
@@ -78,7 +79,8 @@ async def handle_pre_connect(agent: MultimodalAgent, session: openai.realtime.Re
             try:
                 frame = rtc.AudioFrame(data=chunk, sample_rate=48000, num_channels=1, samples_per_channel=480)
                 if frame is not None:
-                    session.input_audio_buffer.append(frame)
+                    logger.debug(f"Appending frame to buffer: {input_buffer}")
+                    input_buffer.append(frame)
             except Exception as e:
                 logger.error(f"Error processing audio chunk: {e}")
             finally:
@@ -92,8 +94,8 @@ async def handle_pre_connect(agent: MultimodalAgent, session: openai.realtime.Re
             await audio_queue.put(chunk)
     finally:
         processor_task.cancel()
-        session.input_audio_buffer.commit()
-        logger.info("Pre-connect audio processing complete")
+        input_buffer.commit()
+        logger.info(f"Pre-connect audio processing complete with buffer: {input_buffer}")
         try:
             await processor_task
         except asyncio.CancelledError:
