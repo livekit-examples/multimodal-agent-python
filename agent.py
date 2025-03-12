@@ -42,6 +42,7 @@ def run_multimodal_agent(ctx: JobContext, participant: rtc.RemoteParticipant):
             "You were created as a demo to showcase the capabilities of LiveKit's agents framework."
         ),
         modalities=["audio", "text"],
+        turn_detection=None
     )
 
     # create a chat context with chat history, these will be synchronized with the server
@@ -58,19 +59,23 @@ def run_multimodal_agent(ctx: JobContext, participant: rtc.RemoteParticipant):
         chat_ctx=chat_ctx,
     )
 
-    if participant.attributes.get("lk.agent.pre-connect-audio"):
-        ctx.room.register_byte_stream_handler("lk.pre-connect-audio-buffer", lambda reader, participant_identity: asyncio.create_task(handle_pre_connect(agent, model.sessions[0], reader)))
-    else:
-        ctx.room.unregister_byte_stream_handler("lk.pre-connect-audio-buffer")
-
     agent.start(ctx.room, participant)
 
-    # to enable the agent to speak first
-    # agent.generate_reply()
+    if participant.attributes.get("lk.agent.pre-connect-audio"):
+        ctx.room.register_byte_stream_handler("lk.agent.pre-connect-audio-buffer", lambda reader, participant_identity: asyncio.create_task(handle_pre_connect(agent, model.sessions[0], reader)))
+    else:
+        ctx.room.unregister_byte_stream_handler("lk.agent.pre-connect-audio-buffer")
+        # no pre-connect audio, so we generate a reply immediately
+        agent.generate_reply()
 
 
 async def handle_pre_connect(agent: MultimodalAgent, session: openai.realtime.RealtimeModel.Session, reader: rtc.ByteStreamReader):
-    audio_stream = AudioByteStream(sample_rate=24000, num_channels=1, samples_per_channel=480)
+    if session is None:
+        return
+
+    sample_rate = int(reader.info.attributes["sampleRate"])
+    num_channels = int(reader.info.attributes["channels"])
+    audio_stream = AudioByteStream(sample_rate=sample_rate, num_channels=num_channels)
     audio_queue = asyncio.Queue()
     input_buffer = session.input_audio_buffer
     
