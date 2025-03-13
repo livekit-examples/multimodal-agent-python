@@ -15,6 +15,7 @@ from livekit.agents import (
 from livekit.agents.multimodal import MultimodalAgent
 from livekit.plugins import openai
 from livekit.agents.utils.audio import AudioByteStream
+from livekit.plugins.openai.realtime.realtime_model import DEFAULT_SERVER_VAD_OPTIONS
 
 load_dotenv(dotenv_path=".env.local")
 logger = logging.getLogger("my-worker")
@@ -62,11 +63,14 @@ def run_multimodal_agent(ctx: JobContext, participant: rtc.RemoteParticipant):
     agent.start(ctx.room, participant)
 
     if participant.attributes.get("lk.agent.pre-connect-audio"):
+        logger.info("registering pre-connect audio handler")
         ctx.room.register_byte_stream_handler("lk.agent.pre-connect-audio-buffer", lambda reader, participant_identity: asyncio.create_task(handle_pre_connect(agent, model.sessions[0], reader)))
     else:
+        logger.info("unregistering pre-connect audio handler")
         ctx.room.unregister_byte_stream_handler("lk.agent.pre-connect-audio-buffer")
         # no pre-connect audio, so we generate a reply immediately
         agent.generate_reply()
+        model.sessions[0].session_update(turn_detection=DEFAULT_SERVER_VAD_OPTIONS)
 
 
 async def handle_pre_connect(agent: MultimodalAgent, session: openai.realtime.RealtimeModel.Session, reader: rtc.ByteStreamReader):
@@ -108,6 +112,7 @@ async def handle_pre_connect(agent: MultimodalAgent, session: openai.realtime.Re
             input_buffer.append(frame)
         session.commit_audio_buffer()
         agent.generate_reply()
+        session.session_update(turn_detection=DEFAULT_SERVER_VAD_OPTIONS)
         try:
             await processor_task
         except asyncio.CancelledError:
