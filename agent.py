@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import asyncio
 import logging
 from dotenv import load_dotenv
 
@@ -15,7 +14,7 @@ from livekit.agents import (
 from livekit.agents.multimodal import MultimodalAgent
 from livekit.plugins import openai
 
-from preconnect import handle_pre_connect
+from preconnect import *
 
 load_dotenv(dotenv_path=".env.local")
 logger = logging.getLogger("my-worker")
@@ -45,12 +44,7 @@ def run_multimodal_agent(ctx: JobContext, participant: rtc.RemoteParticipant):
         modalities=["audio", "text"],
     )
 
-    if participant.attributes.get("lk.agent.pre-connect-audio"):
-        logger.info("registering pre-connect audio handler")
-        ctx.room.register_byte_stream_handler("lk.agent.pre-connect-audio-buffer", lambda reader, participant_identity: asyncio.create_task(handle_pre_connect(model, reader)))
-    else:
-        logger.info("unregistering pre-connect audio handler")
-        ctx.room.unregister_byte_stream_handler("lk.agent.pre-connect-audio-buffer")
+    register_pre_connect_handler(ctx, model, participant)
 
     # create a chat context with chat history, these will be synchronized with the server
     # upon session establishment
