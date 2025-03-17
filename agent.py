@@ -21,20 +21,7 @@ logger = logging.getLogger("my-worker")
 logger.setLevel(logging.INFO)
 
 
-async def entrypoint(ctx: JobContext):    
-    logger.info(f"connecting to room {ctx.room.name}")
-    await ctx.connect(auto_subscribe=AutoSubscribe.AUDIO_ONLY)
-
-    participant = await ctx.wait_for_participant()
-
-    run_multimodal_agent(ctx, participant)
-
-    logger.info("agent started")
-
-
-def run_multimodal_agent(ctx: JobContext, participant: rtc.RemoteParticipant):
-    logger.info("starting multimodal agent")
-
+async def entrypoint(ctx: JobContext):
     model = openai.realtime.RealtimeModel(
         instructions=(
             "You are a voice assistant created by LiveKit. Your interface with users will be voice. "
@@ -44,7 +31,20 @@ def run_multimodal_agent(ctx: JobContext, participant: rtc.RemoteParticipant):
         modalities=["audio", "text"],
     )
 
-    register_pre_connect_handler(ctx, model, participant)
+    register_pre_connect_handler(ctx, model)
+
+    logger.info(f"connecting to room {ctx.room.name}")
+    await ctx.connect(auto_subscribe=AutoSubscribe.AUDIO_ONLY)
+
+    participant = await ctx.wait_for_participant()
+
+    run_multimodal_agent(ctx, model, participant)
+
+    logger.info("agent started")
+
+
+def run_multimodal_agent(ctx: JobContext, model: openai.realtime.RealtimeModel, participant: rtc.RemoteParticipant):
+    logger.info("starting multimodal agent")
 
     # create a chat context with chat history, these will be synchronized with the server
     # upon session establishment

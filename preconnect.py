@@ -13,13 +13,9 @@ PRE_CONNECT_AUDIO_ATTRIBUTE = "lk.agent.pre-connect-audio"
 PRE_CONNECT_AUDIO_BUFFER_STREAM = "lk.agent.pre-connect-audio-buffer"
 
 
-def register_pre_connect_handler(ctx: JobContext, model: openai.realtime.RealtimeModel, participant: rtc.RemoteParticipant):
-    if participant.attributes.get(PRE_CONNECT_AUDIO_ATTRIBUTE):
-        logger.info("registering pre-connect audio handler")
-        ctx.room.register_byte_stream_handler(PRE_CONNECT_AUDIO_BUFFER_STREAM, lambda reader, participant_identity: asyncio.create_task(handle_pre_connect(model, reader)))
-    else:
-        logger.info("unregistering pre-connect audio handler")
-        ctx.room.unregister_byte_stream_handler(PRE_CONNECT_AUDIO_BUFFER_STREAM)
+def register_pre_connect_handler(ctx: JobContext, model: openai.realtime.RealtimeModel):
+    logger.info("registering pre-connect audio handler")
+    ctx.room.register_byte_stream_handler(PRE_CONNECT_AUDIO_BUFFER_STREAM, lambda reader, participant_identity: asyncio.create_task(handle_pre_connect(model, reader)))
 
 
 async def handle_pre_connect(model: openai.realtime.RealtimeModel, reader: rtc.ByteStreamReader):
