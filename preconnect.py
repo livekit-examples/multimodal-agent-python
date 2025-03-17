@@ -8,19 +8,19 @@ logger = logging.getLogger("preconnect")
 logger.setLevel(logging.DEBUG)
 
 async def handle_pre_connect(model: openai.realtime.RealtimeModel, reader: rtc.ByteStreamReader):
-    session = model.sessions[0]
-    if session is None:
+    if not model.sessions or model.sessions[0] is None:
         return
 
-    sample_rate = int(reader.info.attributes["sampleRate"])
-    num_channels = int(reader.info.attributes["channels"])
-    if sample_rate is None or num_channels is None:
+    session = model.sessions[0]
+    
+    try:
+        sample_rate = int(reader.info.attributes["sampleRate"])
+        num_channels = int(reader.info.attributes["channels"])
+    except (KeyError, ValueError, TypeError):
+        logger.error("Missing or invalid audio stream parameters")
         return
 
     audio_stream = AudioByteStream(sample_rate=sample_rate, num_channels=num_channels)
-    if audio_stream is None:
-        return
-
     input_buffer = session.input_audio_buffer
     
     try:
