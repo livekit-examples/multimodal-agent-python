@@ -14,12 +14,12 @@ from livekit.agents import (
 )
 from livekit.agents.multimodal import MultimodalAgent
 from livekit.plugins import openai
-from livekit.agents.utils.audio import AudioByteStream
-from livekit.plugins.openai.realtime.realtime_model import DEFAULT_SERVER_VAD_OPTIONS
+
+from preconnect import handle_pre_connect
 
 load_dotenv(dotenv_path=".env.local")
 logger = logging.getLogger("my-worker")
-logger.setLevel(logging.DEBUG)
+logger.setLevel(logging.INFO)
 
 
 async def entrypoint(ctx: JobContext):    
@@ -43,8 +43,14 @@ def run_multimodal_agent(ctx: JobContext, participant: rtc.RemoteParticipant):
             "You were created as a demo to showcase the capabilities of LiveKit's agents framework."
         ),
         modalities=["audio", "text"],
-        turn_detection=None
     )
+
+    if participant.attributes.get("lk.agent.pre-connect-audio"):
+        logger.info("registering pre-connect audio handler")
+        ctx.room.register_byte_stream_handler("lk.agent.pre-connect-audio-buffer", lambda reader, participant_identity: asyncio.create_task(handle_pre_connect(model, reader)))
+    else:
+        logger.info("unregistering pre-connect audio handler")
+        ctx.room.unregister_byte_stream_handler("lk.agent.pre-connect-audio-buffer")
 
     # create a chat context with chat history, these will be synchronized with the server
     # upon session establishment
@@ -61,62 +67,6 @@ def run_multimodal_agent(ctx: JobContext, participant: rtc.RemoteParticipant):
     )
 
     agent.start(ctx.room, participant)
-
-    if participant.attributes.get("lk.agent.pre-connect-audio"):
-        logger.info("registering pre-connect audio handler")
-        ctx.room.register_byte_stream_handler("lk.agent.pre-connect-audio-buffer", lambda reader, participant_identity: asyncio.create_task(handle_pre_connect(agent, model.sessions[0], reader)))
-    else:
-        logger.info("unregistering pre-connect audio handler")
-        ctx.room.unregister_byte_stream_handler("lk.agent.pre-connect-audio-buffer")
-        # no pre-connect audio, so we generate a reply immediately
-        agent.generate_reply()
-        model.sessions[0].session_update(turn_detection=DEFAULT_SERVER_VAD_OPTIONS)
-
-
-async def handle_pre_connect(agent: MultimodalAgent, session: openai.realtime.RealtimeModel.Session, reader: rtc.ByteStreamReader):
-    if session is None:
-        return
-
-    sample_rate = int(reader.info.attributes["sampleRate"])
-    num_channels = int(reader.info.attributes["channels"])
-    if sample_rate is None or num_channels is None:
-        return
-
-    audio_stream = AudioByteStream(sample_rate=sample_rate, num_channels=num_channels)
-    if audio_stream is None:
-        return
-
-    audio_queue = asyncio.Queue()
-    input_buffer = session.input_audio_buffer
-    
-    async def process_queue():
-        while True:
-            chunk = await audio_queue.get()
-            try:
-                for frame in audio_stream.write(chunk):
-                    input_buffer.append(frame)
-            except Exception as e:
-                logger.error(f"Error processing audio chunk: {e}")
-            finally:
-                audio_queue.task_done()
-
-    processor_task = asyncio.create_task(process_queue())
-    
-    try:
-        async for chunk in reader:
-            logger.debug(f"Received chunk of {len(chunk)} bytes")
-            await audio_queue.put(chunk)
-    finally:
-        processor_task.cancel()
-        for frame in audio_stream.flush():
-            input_buffer.append(frame)
-        session.commit_audio_buffer()
-        agent.generate_reply()
-        session.session_update(turn_detection=DEFAULT_SERVER_VAD_OPTIONS)
-        try:
-            await processor_task
-        except asyncio.CancelledError:
-            pass
 
 
 if __name__ == "__main__":
