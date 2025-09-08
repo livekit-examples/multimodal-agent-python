@@ -1,5 +1,5 @@
 > [!WARNING]
-> This example uses an outdated version of LiveKit Agents. See the [agent-starter-python](https://github.com/livekit-example/agent-starter-python) repository for the latest example.
+> This example uses an outdated version of LiveKit Agents. See the [agent-starter-python](https://github.com/livekit-examples/agent-starter-python) repository for the latest example.
 
 # Python Multimodal Voice Agent
 
